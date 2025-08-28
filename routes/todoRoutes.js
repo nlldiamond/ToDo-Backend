@@ -89,7 +89,13 @@ router.put("/:listId/tasks/:taskId/rename", async (req, res) => {
     task.text = text.trim();
     await list.save();
 
-    res.json(task);
+    // ✅ Send back a clean object with all relevant fields
+    res.json({
+      _id: task._id,
+      text: task.text,
+      completed: task.completed,
+      order: task.order ?? null, // in case you're using ordering
+    });
   } catch (err) {
     console.error("❌ Rename error:", err);
     res.status(500).json({ message: err.message });
