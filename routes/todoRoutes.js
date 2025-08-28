@@ -36,6 +36,7 @@ router.delete("/:listId", async (req, res) => {
   }
 });
 
+
 // -------------------- TASK ROUTES -------------------- //
 
 // Add a new task to a list
@@ -125,43 +126,40 @@ router.delete("/:listId/tasks/:taskId", async (req, res) => {
 router.put("/:listId/reorder", async (req, res) => {
   try {
     const { taskIds } = req.body; 
+    if (!Array.isArray(taskIds)) {
+      return res.status(400).json({ message: "taskIds must be an array" });
+    }
 
+    // Fetch current list tasks
     const list = await List.findById(req.params.listId);
     if (!list) return res.status(404).json({ message: "List not found" });
 
+    // Map existing tasks by _id
     const taskMap = {};
-    list.tasks.forEach((task) => {
-      taskMap[task._id] = task;
+    list.tasks.forEach(task => {
+      taskMap[task._id.toString()] = task;
     });
 
-    list.tasks = taskIds.map((id, index) => {
-      const task = taskMap[id];
+    // Reorder tasks according to taskIds
+    const reorderedTasks = taskIds.map((id, index) => {
+      const task = taskMap[id.toString()];
       if (task) {
-        task.order = index; 
+        task.order = index; // optional ordering field
         return task;
       }
-    }).filter(Boolean); // filter out invalid IDs just in case
+    }).filter(Boolean);
 
-    await list.save();
+    // Atomically update tasks to avoid VersionError
+    const updatedList = await List.findByIdAndUpdate(
+      req.params.listId,
+      { tasks: reorderedTasks },
+      { new: true } // return the updated document
+    );
 
-    res.json(list.tasks);
+    res.json(updatedList.tasks);
   } catch (err) {
     console.error("❌ Reorder error:", err);
     res.status(500).json({ message: err.message });
-  }
-});
-
-router.put("/:listId", async (req, res) => {
-  try {
-    const { name } = req.body;
-    const updatedList = await List.findByIdAndUpdate(
-      req.params.listId,
-      { name },
-      { new: true }
-    );
-    res.json(updatedList);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
   }
 });
 
