@@ -55,7 +55,7 @@ router.post("/:listId/tasks", async (req, res) => {
 });
 
 // Toggle task complete
-router.put("/:listId/tasks/:taskId", async (req, res) => {
+router.put("/:listId/tasks/:taskId/toggle", async (req, res) => {
   try {
     const list = await List.findById(req.params.listId);
     if (!list) return res.status(404).json({ message: "List not found" });
@@ -68,6 +68,30 @@ router.put("/:listId/tasks/:taskId", async (req, res) => {
 
     res.json(task);
   } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Rename a task
+router.put("/:listId/tasks/:taskId/rename", async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text || !text.trim()) {
+      return res.status(400).json({ message: "Task text cannot be empty" });
+    }
+
+    const list = await List.findById(req.params.listId);
+    if (!list) return res.status(404).json({ message: "List not found" });
+
+    const task = list.tasks.id(req.params.taskId);
+    if (!task) return res.status(404).json({ message: "Task not found" });
+
+    task.text = text.trim();
+    await list.save();
+
+    res.json(task);
+  } catch (err) {
+    console.error("❌ Rename error:", err);
     res.status(500).json({ message: err.message });
   }
 });
@@ -94,22 +118,20 @@ router.delete("/:listId/tasks/:taskId", async (req, res) => {
 // -------------------- REORDER TASKS -------------------- //
 router.put("/:listId/reorder", async (req, res) => {
   try {
-    const { taskIds } = req.body; // 👈 frontend sends array of task IDs in new order
+    const { taskIds } = req.body; 
 
     const list = await List.findById(req.params.listId);
     if (!list) return res.status(404).json({ message: "List not found" });
 
-    // Create a map for quick lookup
     const taskMap = {};
     list.tasks.forEach((task) => {
       taskMap[task._id] = task;
     });
 
-    // Rebuild tasks array in the new order and update "order" field
     list.tasks = taskIds.map((id, index) => {
       const task = taskMap[id];
       if (task) {
-        task.order = index; // update order field
+        task.order = index; 
         return task;
       }
     }).filter(Boolean); // filter out invalid IDs just in case
@@ -123,7 +145,6 @@ router.put("/:listId/reorder", async (req, res) => {
   }
 });
 
-// PUT /api/todos/:listId
 router.put("/:listId", async (req, res) => {
   try {
     const { name } = req.body;
